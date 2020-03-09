@@ -13,6 +13,7 @@ from PIL import Image, ImageFilter,ImageEnhance,ImageOps,ImageFile
 import numpy as np
 import pandas as pd 
 from tqdm import tqdm
+from glob import glob
 def PIL2array1C(img):
     '''Converts a PIL image to NumPy Array
 
@@ -27,15 +28,16 @@ def PIL2array1C(img):
 
 
 def image_generation(ref_image_id, ref_id,ref_mask_area, ref_instance_size, ref_xmax, ref_ymax, ref_xmin, ref_ymin,
-                    ref_mask_array, sec_file):
-    category_name = "box"
+                    ref_mask_array, path_file):
+    #category_name = "box"
     #ann2ann_list = []
+    sec_file = path_file.split("/")[-1]
     ann2ann={}
     pro_id = str(sec_file.split('.')[0])
     pro_image_id = int(ann2img[pro_id])
     if ref_image_id==pro_image_id: return None
     file_name = sec_file.split('.')[0]+'.pbm'
-    mask = Image.open(os.path.join(INSTANCE_FILE,category_name,file_name))
+    mask = Image.open(path_file)
     x,y,w,h = annotations[pro_image_id]['bbox']
     xmin = int(round(x))
     ymin = int(round(y))
@@ -80,21 +82,18 @@ with open(MAPPING, 'r') as f:
     ann2img = json.load(f) 
 annotations = {annotation['index_unique']:annotation for annotation in dataset_src['annotations']}
 
-category_list = ['box']
-#multi_process()
-#single_process()
+
 from itertools import combinations,product
-category_name = "box"
-print('Category_name is %s'%(category_name))
-for dirpath,dirnames,filenames in tqdm(os.walk(os.path.join(INSTANCE_FILE,category_name))):
-    pass
 list_results = []
-f=open(os.path.join(ANNOTATION_FILE,category_name,'ann2ann.txt'),'a')
-for ind, first_file in enumerate(tqdm(filenames)):
+list_pbm = glob("{}/*/*.pbm")
+#f=open(os.path.join(ANNOTATION_FILE,category_name,'ann2ann.txt'),'a')
+f=open(os.path.join(ANNOTATION_FILE,'ann2ann.txt'),'a')
+for ind, path_file in enumerate(tqdm(list_pbm)):
+    first_file = path_file.split("/")[-1]
     file_name = first_file.split('.')[0]+'.pbm'
     ref_id = str(first_file.split('.')[0])
     ref_image_id = int(ann2img[ref_id])
-    ref_mask = Image.open(os.path.join(INSTANCE_FILE,category_name,file_name))
+    ref_mask = Image.open(path_file)
     ref_x,ref_y,ref_w,ref_h = annotations[ref_image_id]['bbox']
     ref_xmin = int(round(ref_x))
     ref_ymin = int(round(ref_y))
@@ -108,7 +107,7 @@ for ind, first_file in enumerate(tqdm(filenames)):
     #image_gen = lambda sec_file: image_generation(ref_image_id, ref_id,ref_mask_area, ref_instance_size, ref_xmax, ref_ymax, ref_xmin, ref_ymin,ref_mask_array, sec_file)
     #image_gen(filenames[0])
     results = Parallel(n_jobs = -1, verbose = 10, backend = "multiprocessing")(delayed(image_generation)(ref_image_id, ref_id,ref_mask_area, ref_instance_size, ref_xmax, ref_ymax, ref_xmin, ref_ymin,
-                    ref_mask_array, sec_file)for sec_file in filenames[ind:])
+                    ref_mask_array, path_sec_file)for path_sec_file in list_pbm[ind:])
     temp_res = [x for x in results if x is not None]
     for ann2ann in temp_res:
         f.write(str(ann2ann)+'\n')
