@@ -24,9 +24,9 @@ def PIL2array1C(img):
                     np.uint8).reshape(img.size[1], img.size[0])
 #Prepare Json file
 Ann2ann_FILE="/home/ubuntu/output_psis/ann2ann.txt"#annotation pair file path,e.g.'MSCOCO/PSIS/Omega_uin.txt'
-COCO_Json_File="/home/ubuntu/annotations.json"#MSCOCO anntation json file path,e.g.'MSCOCO/annotations/instances_train2017.json'
-PSIS_Json_File="/home/ubuntu/augment_annotations.json"#PSIS output anntation json file path,e.g.'MSCOCO/annotations/instances_psis.json'
-Mask_Image_FILE = "/home/ubuntu/mask_box"#MSCOCO instance mask output file path, e.g.'MSCOCO/masks/'
+COCO_Json_File="home/ubuntu/annotations.json"#MSCOCO anntation json file path,e.g.'MSCOCO/annotations/instances_train2017.json'
+PSIS_Json_File="home/ubuntu/augment_annotations.json"#PSIS output anntation json file path,e.g.'MSCOCO/annotations/instances_psis.json'
+Mask_Image_FILE = "home/ubuntu/mask_box"#MSCOCO instance mask output file path, e.g.'MSCOCO/masks/'
 COCO_Image_FILE = "/home/ubuntu/datasets/dataset/JPEGImages"#MSCOCO image file path,e.g.'MSCOCO/images/train2017'
 PSIS_Image_FIle = "/home/ubuntu/datasets/dataset/new_JPEGImages"#PSIS image file path,e.g.'MSCOCO/images/psis'
 fjson_coco = open(COCO_Json_File, 'r')
@@ -47,17 +47,17 @@ psis_img_id=0
 psis_ann_id=0
 ann_json_psis = {'info': ann_json_coco['info'], 'licenses': list(ann_json_coco['licenses']),'categories':list(ann_json_coco['categories'])}
 images = {image['id']:image for image in ann_json_coco['images']}
-annotations = {annotation['index_unique']:annotation for annotation in ann_json_coco['annotations']}
+annotations = {annotation['id']:annotation for annotation in ann_json_coco['annotations']}
 for i in range(len(ann_json_coco['categories'])):
     num2cls[ann_json_coco['categories'][i]['id']] = ann_json_coco['categories'][i]['name']
 for i in range(len(ann_json_coco['annotations'])):
     ann_list=[]
-    ann2img[ann_json_coco['annotations'][i]['index_unique']] = ann_json_coco['annotations'][i]['image_id']
-    if (ann_json_coco['annotations'][i]['image_id'] in img2anns) == 0:
-        ann_list.append(ann_json_coco['annotations'][i]['index_unique'])
+    ann2img[ann_json_coco['annotations'][i]['id']] = ann_json_coco['annotations'][i]['image_id']
+    if img2anns.has_key(ann_json_coco['annotations'][i]['image_id']) == 0:
+        ann_list.append(ann_json_coco['annotations'][i]['id'])
         img2anns[ann_json_coco['annotations'][i]['image_id']]=ann_list
     else:
-        img2anns[ann_json_coco['annotations'][i]['image_id']].append(ann_json_coco['annotations'][i]['index_unique'])
+        img2anns[ann_json_coco['annotations'][i]['image_id']].append(ann_json_coco['annotations'][i]['id'])
 print('Data Done')
 #Read annotation switch file
 with open(Ann2ann_FILE) as f:
@@ -67,15 +67,12 @@ with open(Ann2ann_FILE) as f:
         target_ann_id=line.split(':')[1].split('}')[0]
         source_ann_list.append(int(source_ann_id))
         target_ann_list.append(int(target_ann_id))
-        #source_ann_list.append(int(target_ann_id))
-        #target_ann_list.append(int(source_ann_id))
-ann2ann=dict(list(zip(source_ann_list,target_ann_list)))
+ann2ann=dict(zip(source_ann_list,target_ann_list))
 f.close()
 print('Read Done')
-#print(ann2img.keys())
 #Swichting instance and update annotation file
 bar=progressbar.ProgressBar()
-for i in bar(list(range(len(source_ann_list)))):
+for i in bar(range(len(source_ann_list))):
     #prepare image and mask id
     src_ann_id=source_ann_list[i]
     src_img_id=ann2img[src_ann_id]
@@ -83,7 +80,7 @@ for i in bar(list(range(len(source_ann_list)))):
     tar_img_id=ann2img[tar_ann_id]
     src_ann=annotations[src_ann_id]
     tar_ann=annotations[tar_ann_id]
-    category_name_src= annotations[src_ann_id]['classname']
+    category_name=num2cls[annotations[src_ann_id]['category_id']]
     #category_name=num2cls[annotations[src_ann_id]['category_id']]
     #prepare image and mask
     #src_img_name = (str(src_img_id).zfill(12)+'.jpg')
@@ -94,9 +91,8 @@ for i in bar(list(range(len(source_ann_list)))):
     tar_image = Image.open(os.path.join(COCO_Image_FILE,tar_img_name))
     src_mask_name = src_ann["filename"]+ "_"+ str(src_ann["id"])+'.pbm'
     tar_mask_name = tar_ann["filename"]+ "_"+str(tar_ann["id"])+'.pbm'
-    src_mask = Image.open(os.path.join(Mask_Image_FILE,category_name_src,src_mask_name))
-    category_name_tar= annotations[tar_ann_id]['classname']
-    tar_mask = Image.open(os.path.join(Mask_Image_FILE,category_name_tar,tar_mask_name))
+    src_mask = Image.open(os.path.join(Mask_Image_FILE,category_name,src_mask_name))
+    tar_mask = Image.open(os.path.join(Mask_Image_FILE,category_name,tar_mask_name))
     #prepare bbox coordinate
     src_x,src_y,src_w,src_h = annotations[src_ann_id]['bbox']
     src_xmin = int(round(src_x))
@@ -138,11 +134,11 @@ for i in bar(list(range(len(source_ann_list)))):
     #save images
     src_psis_id = psis_img_id
     #src_psis_name=str(src_psis_id).zfill(12)+'.jpg'
-    src_psis_name="augment_{}_".format(src_psis_id) + src_img_name
+    src_psis_name="augment_" + src_img_name+'.jpg'
     src_image_a.save(os.path.join(PSIS_Image_FIle,src_psis_name))
     psis_img_id+=1
     tar_psis_id = psis_img_id
-    tar_psis_name = "augment_{}_".format(tar_psis_id) + tar_img_name 
+    tar_psis_name = "augment_" + tar_img_name +'.jpg'
     #tar_psis_name=str(tar_psis_id).zfill(12)+'.jpg'
     tar_image_a.save(os.path.join(PSIS_Image_FIle,tar_psis_name))
     psis_img_id+=1
@@ -155,10 +151,8 @@ for i in bar(list(range(len(source_ann_list)))):
             src_ann_bak['image_id'] = tar_psis_id
             src_ann_bak['id'] = psis_ann_id
             src_ann_bak["bbox"]=[tar_x,tar_y,tar_w,tar_h]
-            src_ann_bak["filename"] = tar_psis_name.split(".")[0]
-            src_ann_bak["classname"] = category_name_src
             if ann['iscrowd'] == 0:
-                for k in range(len(src_ann_bak['segmentation'][0])):
+                for k in xrange(len(src_ann_bak['segmentation'][0])):
                     if k%2==0:
                         src_ann_bak['segmentation'][0][k]=src_ann_bak['segmentation'][0][k]-th_x_src2tar
                         src_ann_bak['segmentation'][0][k]=round(tar_cenx+(src_ann_bak['segmentation'][0][k]-tar_cenx)/th_w_src2tar,2)
@@ -170,25 +164,23 @@ for i in bar(list(range(len(source_ann_list)))):
             psis_annotation_list.append(src_ann_bak)
         else:
             ann = copy.deepcopy(annotations[src_ann_list[j]])
-            #ann['image_id'] = src_psis_id
-            #ann['id'] = psis_ann_id
-            #psis_ann_id+=1
-            #psis_annotation_list.append(ann)
+            ann['image_id'] = src_psis_id
+            ann['id'] = psis_ann_id
+            psis_ann_id+=1
+            psis_annotation_list.append(ann)
             #attached instance update
             x,y,w,h = annotations[src_ann_list[j]]['bbox']
             xmin = int(round(x))
             ymin = int(round(y))
             xmax = int(round(x + w))
             ymax = int(round(y + h))
-            #if src_xmin<xmin and src_ymin<ymin and src_xmax>xmax and src_ymax>ymax:
-            if False:
+            if src_xmin<xmin and src_ymin<ymin and src_xmax>xmax and src_ymax>ymax:
                 ann = copy.deepcopy(annotations[src_ann_list[j]])
                 ann['image_id'] = tar_psis_id
                 ann['id'] = psis_ann_id
-                #ann['bbox'] = [tar_x-src_x+xmin,tar_y-src_y+ymin,w*tar_w/src_w,h*tar_h/src_h]
-                ann["filename"] = tar_psis_name.split(".")[0]
+                ann['bbox'] = [tar_x-src_x+xmin,tar_y-src_y+ymin,w*tar_w/src_w,h*tar_h/src_h]
                 if ann['iscrowd'] == 0:
-                    for k in range(len(ann['segmentation'][0])):
+                    for k in xrange(len(ann['segmentation'][0])):
                         if k%2==0:
                             ann['segmentation'][0][k]=ann['segmentation'][0][k]-th_x_src2tar
                             ann['segmentation'][0][k]=round(tar_cenx+(ann['segmentation'][0][k]-tar_cenx)/th_w_src2tar,2)
@@ -200,7 +192,7 @@ for i in bar(list(range(len(source_ann_list)))):
                 psis_annotation_list.append(ann)
     src_img_ann = copy.deepcopy(images[src_img_id])
     src_img_ann['id'] = src_psis_id
-    src_img_ann['filename'] =  src_psis_name
+    src_img_ann['file_name'] =  src_psis_name
     psis_image_list.append(src_img_ann)
     for j in range(len(tar_ann_list)):
         if tar_ann_id == tar_ann_list[j]:
@@ -208,8 +200,6 @@ for i in bar(list(range(len(source_ann_list)))):
             tar_ann_bak['image_id'] = src_psis_id
             tar_ann_bak['id'] = psis_ann_id
             tar_ann_bak["bbox"] = [src_x, src_y, src_w, src_h]
-            tar_ann_bak["filename"] = src_psis_name.split(".")[0]
-            tar_ann_bak["classname"] = category_name_tar
             if ann['iscrowd'] == 0:
                 for k in range(len(tar_ann_bak['segmentation'][0])):
                     if k%2==0:
@@ -223,23 +213,21 @@ for i in bar(list(range(len(source_ann_list)))):
             psis_annotation_list.append(tar_ann_bak)
         else:
             ann = copy.deepcopy(annotations[tar_ann_list[j]])
-            #ann['image_id'] = tar_psis_id
-            #ann['id'] = psis_ann_id
-            #psis_ann_id+=1
-            #psis_annotation_list.append(ann)
+            ann['image_id'] = tar_psis_id
+            ann['id'] = psis_ann_id
+            psis_ann_id+=1
+            psis_annotation_list.append(ann)
             x,y,w,h = annotations[tar_ann_list[j]]['bbox']
             xmin = int(round(x))
             ymin = int(round(y))
             xmax = int(round(x + w))
             ymax = int(round(y + h))
             #attached instance update
-            #if tar_xmin<xmin and tar_ymin<ymin and tar_xmax>xmax and tar_ymax>ymax:
-            if False:
+            if tar_xmin<xmin and tar_ymin<ymin and tar_xmax>xmax and tar_ymax>ymax:
                 ann = copy.deepcopy(annotations[tar_ann_list[j]])
                 ann['image_id'] = src_psis_id
                 ann['id'] = psis_ann_id
-                #ann['bbox'] = [src_x-tar_x+xmin,src_y-tar_y+ymin,w*src_w/tar_w,h*src_h/tar_h]
-                ann["filename"] = src_psis_name.split(".")[0]
+                ann['bbox'] = [src_x-tar_x+xmin,src_y-tar_y+ymin,w*src_w/tar_w,h*src_h/tar_h]
                 if ann['iscrowd'] == 0:
                     for k in range(len(ann['segmentation'][0])):
                         if k%2==0:
@@ -253,13 +241,13 @@ for i in bar(list(range(len(source_ann_list)))):
                 psis_annotation_list.append(ann)
     tar_img_ann = copy.deepcopy(images[tar_img_id])
     tar_img_ann['id'] = tar_psis_id
-    tar_img_ann['filename'] =  tar_psis_name
+    tar_img_ann['file_name'] =  tar_psis_name
     psis_image_list.append(tar_img_ann)
-print('Switch Done')
+print 'Switch Done'
 
 ann_json_psis['images'] = psis_image_list
 ann_json_psis['annotations'] = psis_annotation_list
 json.dump(ann_json_psis,fjson_psis)
 fjson_coco.close()
 fjson_psis.close()
-print('Master: I\'m Done')
+print'Master: I\'m Done'

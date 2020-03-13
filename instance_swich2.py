@@ -23,21 +23,27 @@ def PIL2array1C(img):
     return np.array(img.getdata(),
                     np.uint8).reshape(img.size[1], img.size[0])
 #Prepare Json file
-Ann2ann_FILE="/home/ubuntu/output_psis/ann2ann.txt"#annotation pair file path,e.g.'MSCOCO/PSIS/Omega_uin.txt'
-COCO_Json_File="/home/ubuntu/annotations.json"#MSCOCO anntation json file path,e.g.'MSCOCO/annotations/instances_train2017.json'
-PSIS_Json_File="/home/ubuntu/augment_annotations.json"#PSIS output anntation json file path,e.g.'MSCOCO/annotations/instances_psis.json'
-Mask_Image_FILE = "/home/ubuntu/mask_box"#MSCOCO instance mask output file path, e.g.'MSCOCO/masks/'
+Ann2ann_FILE="/home/ubuntu/output_psis/ann2ann_new.txt"#annotation pair file path,e.g.'MSCOCO/PSIS/Omega_uin.txt'
+COCO_Json_File="/home/ubuntu/annotations_lowclasses.json"#MSCOCO anntation json file path,e.g.'MSCOCO/annotations/instances_train2017.json'
+COCO_Json_File_Target="/home/ubuntu/annotations.json"#MSCOCO anntation json file path,e.g.'MSCOCO/annotations/instances_train2017.json'
+PSIS_Json_File="/home/ubuntu/augment_annotations_new.json"#PSIS output anntation json file path,e.g.'MSCOCO/annotations/instances_psis.json'
+Mask_Image_FILE = "/home/ubuntu/new_masks"#MSCOCO instance mask output file path, e.g.'MSCOCO/masks/'
+Mask_Image_FILE_Target = "/home/ubuntu/mask_box"
 COCO_Image_FILE = "/home/ubuntu/datasets/dataset/JPEGImages"#MSCOCO image file path,e.g.'MSCOCO/images/train2017'
-PSIS_Image_FIle = "/home/ubuntu/datasets/dataset/new_JPEGImages"#PSIS image file path,e.g.'MSCOCO/images/psis'
+PSIS_Image_FIle = "/home/ubuntu/datasets/dataset/lowclasses_JPEGImages"#PSIS image file path,e.g.'MSCOCO/images/psis'
 fjson_coco = open(COCO_Json_File, 'r')
+fjson_coco_target = open(COCO_Json_File_Target, 'r')
 fjson_psis = open(PSIS_Json_File, 'w')
 INVERTED_MASK = 1
 ann_json_coco = json.load(fjson_coco)
+ann_json_coco_target = json.load(fjson_coco_target)
 #ann_json_psis = json.load(fjson_psis)
 #Prepare Data structure
 ann2img = {}
+ann2img_target = {}
 num2cls = {}
 img2anns = {}
+img2anns_target = {}
 psis_image_list = []
 psis_annotation_list = []
 target_ann_list=[]
@@ -47,9 +53,10 @@ psis_img_id=0
 psis_ann_id=0
 ann_json_psis = {'info': ann_json_coco['info'], 'licenses': list(ann_json_coco['licenses']),'categories':list(ann_json_coco['categories'])}
 images = {image['id']:image for image in ann_json_coco['images']}
+images_target = {image['id']:image for image in ann_json_coco_target['images']}
 annotations = {annotation['index_unique']:annotation for annotation in ann_json_coco['annotations']}
-for i in range(len(ann_json_coco['categories'])):
-    num2cls[ann_json_coco['categories'][i]['id']] = ann_json_coco['categories'][i]['name']
+annotations_target = {annotation['index_unique']:annotation for annotation in ann_json_coco_target['annotations']}
+
 for i in range(len(ann_json_coco['annotations'])):
     ann_list=[]
     ann2img[ann_json_coco['annotations'][i]['index_unique']] = ann_json_coco['annotations'][i]['image_id']
@@ -58,6 +65,14 @@ for i in range(len(ann_json_coco['annotations'])):
         img2anns[ann_json_coco['annotations'][i]['image_id']]=ann_list
     else:
         img2anns[ann_json_coco['annotations'][i]['image_id']].append(ann_json_coco['annotations'][i]['index_unique'])
+for i in range(len(ann_json_coco_target['annotations'])):
+    ann_list=[]
+    ann2img_target[ann_json_coco_target['annotations'][i]['index_unique']] = ann_json_coco_target['annotations'][i]['image_id']
+    if (ann_json_coco_target['annotations'][i]['image_id'] in img2anns_target) == 0:
+        ann_list.append(ann_json_coco_target['annotations'][i]['index_unique'])
+        img2anns_target[ann_json_coco_target['annotations'][i]['image_id']]=ann_list
+    else:
+        img2anns_target[ann_json_coco_target['annotations'][i]['image_id']].append(ann_json_coco_target['annotations'][i]['index_unique'])
 print('Data Done')
 #Read annotation switch file
 with open(Ann2ann_FILE) as f:
@@ -80,7 +95,7 @@ for i in bar(list(range(len(source_ann_list)))):
     src_ann_id=source_ann_list[i]
     src_img_id=ann2img[src_ann_id]
     tar_ann_id=target_ann_list[i]
-    tar_img_id=ann2img[tar_ann_id]
+    tar_img_id=ann2img_target[tar_ann_id]
     src_ann=annotations[src_ann_id]
     tar_ann=annotations[tar_ann_id]
     category_name_src= annotations[src_ann_id]['classname']
@@ -148,7 +163,7 @@ for i in bar(list(range(len(source_ann_list)))):
     psis_img_id+=1
     ##update annotation file
     src_ann_list = img2anns[src_img_id]
-    tar_ann_list = img2anns[tar_img_id]
+    tar_ann_list = img2anns_target[tar_img_id]
     for j in range(len(src_ann_list)):
         if src_ann_id == src_ann_list[j]:
             src_ann_bak = copy.deepcopy(src_ann)

@@ -34,11 +34,11 @@ def image_generation(ref_image_id, ref_id,ref_mask_area, ref_instance_size, ref_
     sec_file = path_file.split("/")[-1]
     ann2ann={}
     pro_id = str(sec_file.split('.')[0])
-    pro_image_id = int(ann2img[pro_id])
+    pro_image_id = int(ann2img2[pro_id])
     if ref_image_id==pro_image_id: return None
     file_name = sec_file.split('.')[0]+'.pbm'
     mask = Image.open(path_file)
-    x,y,w,h = annotations[pro_image_id]['bbox']
+    x,y,w,h = annotations2[pro_image_id]['bbox']
     xmin = int(round(x))
     ymin = int(round(y))
     xmax = int(round(x + w))
@@ -57,10 +57,10 @@ def image_generation(ref_image_id, ref_id,ref_mask_area, ref_instance_size, ref_
     else: ref_ssd2instance_ratio = 1
     if mask_area != 0: pro_ssd2instance_ratio = float(ssd) / float(mask_area)
     else: pro_ssd2instance_ratio = 1
+    print(ref_ssd2instance_ratio, pro_ssd2instance_ratio )
     if ref_ssd2instance_ratio > 0.3 or pro_ssd2instance_ratio > 0.3 : return None
     if ref2pro_ratio > 3 or ref2pro_ratio < 0.3: return None
     if ssd == 0 : return None
-    
     ann2ann[ref_image_id]=pro_image_id
     #ann2ann[ref_image_id]=[pro_image_id, ref2pro_ratio, ref_ssd2instance_ratio, pro_ssd2instance_ratio]
     #ann2ann_list.append(ann2ann)
@@ -69,24 +69,34 @@ def image_generation(ref_image_id, ref_id,ref_mask_area, ref_instance_size, ref_
 
     
 INVERTED_MASK = 1
-INSTANCE_FILE = "/home/ubuntu/mask_box/"#MSCOCO instance mask output file path, e.g.'MSCOCO/masks/'
-ANNOTATION_FILE = "/home/ubuntu/output_psis"#annotation pair file path for each category,e.g.'MSCOCO/PSIS/'
-JSON_FILE= "/home/ubuntu/annotations.json"#MSCOCO anntation json file path,e.g.'MSCOCO/annotations/instances_train2017.json'
-MAPPING= "/home/ubuntu/mapping.json"
+INSTANCE_FILE = "/home/ubuntu/new_masks/"#MSCOCO instance mask output file path, e.g.'MSCOCO/masks/'
+INSTANCE_FILE2 = "/home/ubuntu/mask_box"
+ANNOTATION_FILE = "/home/ubuntu/output_psis_new"#annotation pair file path for each category,e.g.'MSCOCO/PSIS/'
+JSON_FILE= "/home/ubuntu/annotations_lowclasses.json"
+JSON_FILE2= "/home/ubuntu/annotations.json"
+MAPPING2 = "/home/ubuntu/mapping.json"#MSCOCO anntation json file path,e.g.'MSCOCO/annotations/instances_train2017.json'
+MAPPING= "/home/ubuntu/mapping_lowclasses.json"
+#/home/ubuntu/mapping.json"
 try:
     os.makedirs(ANNOTATION_FILE)
 except:
     pass
 with open(JSON_FILE, 'r') as f:
     dataset_src = json.load(f)
+with open(JSON_FILE2, 'r') as f:
+    dataset_src2 = json.load(f)
 with open(MAPPING, 'r') as f:
-    ann2img = json.load(f) 
+    ann2img = json.load(f)
+with open(MAPPING2, 'r') as f:
+    ann2img2 = json.load(f) 
 annotations = {annotation['index_unique']:annotation for annotation in dataset_src['annotations']}
+annotations2 = {annotation['index_unique']:annotation for annotation in dataset_src2['annotations']}
 
 
 from itertools import combinations,product
 list_results = []
 list_pbm = glob("{}/*/*.pbm".format(INSTANCE_FILE))
+list_pbm2 = glob("{}/*/*.pbm".format(INSTANCE_FILE2))
 #f=open(os.path.join(ANNOTATION_FILE,category_name,'ann2ann.txt'),'a')
 f=open(os.path.join(ANNOTATION_FILE,'ann2ann_new.txt'),'a')
 for ind, path_file in enumerate(tqdm(list_pbm)):
@@ -107,8 +117,10 @@ for ind, path_file in enumerate(tqdm(list_pbm)):
     ref_mask_area = np.sum(ref_mask_array==255)
     #image_gen = lambda sec_file: image_generation(ref_image_id, ref_id,ref_mask_area, ref_instance_size, ref_xmax, ref_ymax, ref_xmin, ref_ymin,ref_mask_array, sec_file)
     #image_gen(filenames[0])
+    #results = Parallel(n_jobs = -1, verbose = 10, backend = "multiprocessing")(delayed(image_generation)(ref_image_id, ref_id,ref_mask_area, ref_instance_size, ref_xmax, ref_ymax, ref_xmin, ref_ymin,
+    #ref_mask_array, path_sec_file)for path_sec_file in list_pbm[ind:])
     results = Parallel(n_jobs = -1, verbose = 10, backend = "multiprocessing")(delayed(image_generation)(ref_image_id, ref_id,ref_mask_area, ref_instance_size, ref_xmax, ref_ymax, ref_xmin, ref_ymin,
-                    ref_mask_array, path_sec_file)for path_sec_file in list_pbm[ind:])
+                        ref_mask_array, path_sec_file)for path_sec_file in list_pbm2)
     temp_res = [x for x in results if x is not None]
     for ann2ann in temp_res:
         f.write(str(ann2ann)+'\n')
